@@ -14,8 +14,11 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import MultiMediaPicker from './MultiMediaPicker';
+import PostView from './PostView';
 
-const API_ENDPOINT = '/api/posts';
+// API endpoint - not used for client-side only mode
+// Uncomment and update uploadMediaItem if you want to add real backend later
+// const API_ENDPOINT = '/api/posts';
 
 /**
  * PostScreen - Instagram-like post creation screen
@@ -34,6 +37,7 @@ const PostScreen = ({ navigation, onPostCreated }) => {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [failedUploads, setFailedUploads] = useState([]);
+  const [createdPost, setCreatedPost] = useState(null);
 
   /**
    * Handle media changes from MultiMediaPicker
@@ -43,41 +47,33 @@ const PostScreen = ({ navigation, onPostCreated }) => {
   }, []);
 
   /**
-   * Upload single media item
+   * Upload single media item (Client-side simulation - no network requests)
    */
   const uploadMediaItem = useCallback(
     async (item, index, total) => {
       try {
-        const formData = new FormData();
+        console.log(`[Client-side] Simulating upload for item ${index}:`, item.type, item.uri);
 
-        // Determine file type and name
-        const fileExtension = item.type === 'video' ? 'mp4' : 'jpg';
-        const fileName = `media_${index}.${fileExtension}`;
-        const fileType = item.type === 'video' ? 'video/mp4' : 'image/jpeg';
+        // Simulate upload delay (500ms - 2000ms per item for realistic UX)
+        const uploadDelay = 500 + Math.random() * 1500;
+        await new Promise((resolve) => setTimeout(resolve, uploadDelay));
 
-        formData.append('media', {
+        // Optional: Simulate random failures (5% chance) - comment out if you want 100% success
+        // if (Math.random() < 0.05) {
+        //   throw new Error('Simulated upload failure');
+        // }
+
+        // Simulate successful upload result (client-side only)
+        const result = {
+          id: `local-${index}-${Date.now()}`,
           uri: item.uri,
-          type: fileType,
-          name: fileName,
-        });
-        formData.append('index', index.toString());
-        formData.append('type', item.type);
+          type: item.type,
+          fileName: `media_${index}.${item.type === 'video' ? 'mp4' : 'jpg'}`,
+          uploadedAt: new Date().toISOString(),
+          size: item.fileSize || 0,
+        };
 
-        // Mock upload - replace with actual API endpoint
-        const response = await fetch(API_ENDPOINT, {
-          method: 'POST',
-          body: formData,
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Upload failed: ${response.statusText}`);
-        }
-
-        const result = await response.json();
-        console.log(`Upload successful for item ${index}:`, result);
+        console.log(`[Client-side] Upload successful for item ${index}:`, result);
 
         // Update progress
         const progress = ((index + 1) / total) * 100;
@@ -85,7 +81,7 @@ const PostScreen = ({ navigation, onPostCreated }) => {
 
         return { success: true, index, result };
       } catch (error) {
-        console.error(`Upload error for item ${index}:`, error);
+        console.error(`[Client-side] Upload error for item ${index}:`, error);
         return { success: false, index, error: error.message };
       }
     },
@@ -194,23 +190,22 @@ const PostScreen = ({ navigation, onPostCreated }) => {
 
       // If all successful, create post with metadata
       if (failed.length === 0) {
-        // Create post with caption, location, tags
+        // Create post with caption, location, tags (Instagram-style format)
         const postData = {
-          media: successful.map((s) => s.result),
+          id: `post-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          media: media.map((item, idx) => ({
+            uri: item.uri,
+            type: item.type,
+            id: item.id || `media-${idx}`,
+          })),
           caption,
           location: location || null,
           tags: tags
             .split(',')
             .map((t) => t.trim())
             .filter((t) => t.length > 0),
+          createdAt: new Date().toISOString(),
         };
-
-        // Mock API call to create post
-        // const postResponse = await fetch(API_ENDPOINT, {
-        //   method: 'POST',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify(postData),
-        // });
 
         Toast.show({
           type: 'success',
@@ -219,8 +214,20 @@ const PostScreen = ({ navigation, onPostCreated }) => {
         });
 
         setUploading(false);
+        
+        // Show the Instagram-style post view
+        setCreatedPost(postData);
+        
+        // Reset form after a short delay
+        setTimeout(() => {
+          setMedia([]);
+          setCaption('');
+          setLocation('');
+          setTags('');
+        }, 1000);
+
         if (onPostCreated) {
-          onPostCreated();
+          onPostCreated(postData);
         }
       } else {
         // Some uploads failed - offer retry
@@ -286,6 +293,19 @@ const PostScreen = ({ navigation, onPostCreated }) => {
   }, [media.length, caption.length, navigation]);
 
   const canShare = media.length > 0 && !uploading;
+
+  // Show Instagram-style post view after successful share
+  if (createdPost) {
+    return (
+      <PostView
+        post={createdPost}
+        onBack={() => {
+          setCreatedPost(null);
+          // Optionally reset form when going back
+        }}
+      />
+    );
+  }
 
   return (
     <KeyboardAvoidingView
