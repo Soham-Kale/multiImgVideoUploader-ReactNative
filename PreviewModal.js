@@ -17,6 +17,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
  * PreviewModal - Full-screen preview modal for viewing selected media
  * Supports images with zoom/pinch gestures and video playback
  */
+
 const PreviewModal = ({ visible, media, currentIndex, onClose, onDelete }) => {
   const [imageIndex, setImageIndex] = React.useState(currentIndex || 0);
 
@@ -26,25 +27,26 @@ const PreviewModal = ({ visible, media, currentIndex, onClose, onDelete }) => {
     }
   }, [currentIndex]);
 
-  if (!media || media.length === 0) {
-    return null;
-  }
-
   // Filter only images for ImageViewing (videos handled separately)
-  const images = media
-    .map((item, idx) => ({
-      uri: item.type === 'image' ? item.uri : null,
-      id: idx,
-    }))
-    .filter((item) => item.uri !== null);
+  // This must be computed BEFORE useMemo to ensure hooks order consistency
+  const images = React.useMemo(() => {
+    if (!media || media.length === 0) return [];
+    return media
+      .map((item, idx) => ({
+        uri: item.type === 'image' ? item.uri : null,
+        id: idx,
+      }))
+      .filter((item) => item.uri !== null);
+  }, [media]);
 
-  // Check if current item is video
-  const currentMedia = media[imageIndex];
+  // Check if current item is video (safe even if media is empty)
+  const currentMedia = media && media.length > 0 ? media[imageIndex] : null;
   const isVideo = currentMedia?.type === 'video';
 
   // Find the image index for ImageViewing (only counting images)
+  // This hook MUST be called BEFORE any early returns to maintain hooks order
   const imageViewingIndex = React.useMemo(() => {
-    if (isVideo || images.length === 0) return 0;
+    if (!media || media.length === 0 || isVideo || images.length === 0) return 0;
     let imageCount = 0;
     for (let i = 0; i < imageIndex; i++) {
       if (media[i]?.type === 'image') {
@@ -53,6 +55,11 @@ const PreviewModal = ({ visible, media, currentIndex, onClose, onDelete }) => {
     }
     return Math.max(0, Math.min(imageCount, images.length - 1));
   }, [imageIndex, media, isVideo, images.length]);
+
+  // Early return AFTER all hooks have been called
+  if (!media || media.length === 0) {
+    return null;
+  }
 
   return (
     <Modal
