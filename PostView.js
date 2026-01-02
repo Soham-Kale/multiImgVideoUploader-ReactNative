@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Video } from 'react-native-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import PreviewModal from './PreviewModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const POST_WIDTH = SCREEN_WIDTH;
@@ -24,6 +25,7 @@ const PostView = ({ post, onBack }) => {
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(Math.floor(Math.random() * 1000) + 50);
+  const [previewVisible, setPreviewVisible] = useState(false);
 
   const media = post.media || [];
   const currentMedia = media[currentMediaIndex];
@@ -33,16 +35,14 @@ const PostView = ({ post, onBack }) => {
     setLikesCount(liked ? likesCount - 1 : likesCount + 1);
   };
 
-  const handlePrevious = () => {
-    if (currentMediaIndex > 0) {
-      setCurrentMediaIndex(currentMediaIndex - 1);
+  const handleMediaPress = () => {
+    if (media.length > 0) {
+      setPreviewVisible(true);
     }
   };
 
-  const handleNext = () => {
-    if (currentMediaIndex < media.length - 1) {
-      setCurrentMediaIndex(currentMediaIndex + 1);
-    }
+  const handlePreviewClose = () => {
+    setPreviewVisible(false);
   };
 
   return (
@@ -60,57 +60,57 @@ const PostView = ({ post, onBack }) => {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Media Carousel */}
-        <View style={styles.mediaContainer}>
-          {currentMedia?.type === 'video' ? (
-            <Video
-              source={{ uri: currentMedia.uri }}
-              style={styles.media}
-              resizeMode="contain"
-              controls={true}
-              paused={false}
-            />
-          ) : (
-            <Image
-              source={{ uri: currentMedia?.uri }}
-              style={styles.media}
-              resizeMode="contain"
-            />
-          )}
+        <View style={styles.mediaCarouselContainer}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(event) => {
+              const index = Math.round(
+                event.nativeEvent.contentOffset.x / SCREEN_WIDTH
+              );
+              setCurrentMediaIndex(index);
+            }}
+            style={styles.mediaCarousel}>
+            {media.map((item, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.mediaContainer}
+                onPress={handleMediaPress}
+                activeOpacity={1}>
+                {item.type === 'video' ? (
+                  <Video
+                    source={{ uri: item.uri }}
+                    style={styles.media}
+                    resizeMode="contain"
+                    controls={true}
+                    paused={index !== currentMediaIndex}
+                  />
+                ) : (
+                  <Image
+                    source={{ uri: item.uri }}
+                    style={styles.media}
+                    resizeMode="contain"
+                  />
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
 
           {/* Media Indicators */}
           {media.length > 1 && (
-            <>
-              <View style={styles.mediaIndicators}>
-                {media.map((_, index) => (
-                  <View
-                    key={index}
-                    style={[
-                      styles.indicator,
-                      index === currentMediaIndex && styles.indicatorActive,
-                    ]}
-                  />
-                ))}
-              </View>
-
-              {/* Navigation Arrows */}
-              {currentMediaIndex > 0 && (
-                <TouchableOpacity
-                  style={[styles.navArrow, styles.navArrowLeft]}
-                  onPress={handlePrevious}>
-                  <Text style={styles.navArrowText}>‹</Text>
-                </TouchableOpacity>
-              )}
-
-              {currentMediaIndex < media.length - 1 && (
-                <TouchableOpacity
-                  style={[styles.navArrow, styles.navArrowRight]}
-                  onPress={handleNext}>
-                  <Text style={styles.navArrowText}>›</Text>
-                </TouchableOpacity>
-              )}
-            </>
+            <View style={styles.mediaIndicators}>
+              {media.map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.indicator,
+                    index === currentMediaIndex && styles.indicatorActive,
+                  ]}
+                />
+              ))}
+            </View>
           )}
-          
         </View>
 
         {/* Engagement Section */}
@@ -183,6 +183,15 @@ const PostView = ({ post, onBack }) => {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Full Screen Preview Modal */}
+      <PreviewModal
+        visible={previewVisible}
+        media={media}
+        currentIndex={currentMediaIndex}
+        onClose={handlePreviewClose}
+        onDelete={null} // No delete in post view
+      />
     </View>
   );
 };
@@ -223,11 +232,20 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  mediaContainer: {
+  mediaCarouselContainer: {
     width: POST_WIDTH,
     height: POST_WIDTH,
     backgroundColor: '#000',
     position: 'relative',
+  },
+  mediaCarousel: {
+    width: POST_WIDTH,
+    height: POST_WIDTH,
+  },
+  mediaContainer: {
+    width: POST_WIDTH,
+    height: POST_WIDTH,
+    backgroundColor: '#000',
   },
   media: {
     width: '100%',
@@ -254,28 +272,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-  },
-  navArrow: {
-    position: 'absolute',
-    top: '50%',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    transform: [{ translateY: -20 }],
-  },
-  navArrowLeft: {
-    left: 12,
-  },
-  navArrowRight: {
-    right: 12,
-  },
-  navArrowText: {
-    color: '#fff',
-    fontSize: 28,
-    fontWeight: 'bold',
   },
   engagementSection: {
     paddingHorizontal: 12,
