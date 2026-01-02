@@ -110,6 +110,7 @@ const PostView = ({ post, onBack }) => {
               )}
             </>
           )}
+          
         </View>
 
         {/* Engagement Section */}

@@ -25,6 +25,8 @@ import {
 import ImageResizer from '@bam.tech/react-native-image-resizer';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import PreviewModal from './PreviewModal';
+import MediaEditor from './src/components/MediaEditor/MediaEditor';
+import VideoTrimmer from './src/components/VideoTrimmer/VideoTrimmer';
 
 const MAX_MEDIA_COUNT = 10;
 const MAX_VIDEO_DURATION = 15; // seconds
@@ -46,6 +48,8 @@ const MultiMediaPicker = ({ onMediaChange, initialMedia = [] }) => {
   const [previewIndex, setPreviewIndex] = useState(0);
   const [compressing, setCompressing] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState(null);
+  const [editingMedia, setEditingMedia] = useState(null);
+  const [editingType, setEditingType] = useState(null); // 'image' or 'video'
 
   // Notify parent component of media changes
   React.useEffect(() => {
@@ -275,6 +279,41 @@ const MultiMediaPicker = ({ onMediaChange, initialMedia = [] }) => {
   }, []);
 
   /**
+   * Handle edit media
+   */
+  const handleEdit = useCallback((index) => {
+    const item = media[index];
+    setEditingMedia({ ...item, index });
+    setEditingType(item.type);
+  }, [media]);
+
+  /**
+   * Save edited media
+   */
+  const handleSaveEdit = useCallback((editedItem) => {
+    if (editedItem && editedItem.index !== undefined) {
+      setMedia((prev) => {
+        const updated = [...prev];
+        updated[editedItem.index] = {
+          ...updated[editedItem.index],
+          ...editedItem,
+        };
+        return updated;
+      });
+    }
+    setEditingMedia(null);
+    setEditingType(null);
+  }, []);
+
+  /**
+   * Cancel editing
+   */
+  const handleCancelEdit = useCallback(() => {
+    setEditingMedia(null);
+    setEditingType(null);
+  }, []);
+
+  /**
    * Reorder media items (drag and drop)
    */
   const handleReorder = useCallback((fromIndex, toIndex) => {
@@ -370,6 +409,13 @@ const MultiMediaPicker = ({ onMediaChange, initialMedia = [] }) => {
                   />
                 )}
                 <TouchableOpacity
+                  style={styles.editButton}
+                  onPress={() => handleEdit(index)}
+                  accessibilityLabel={`Edit ${item.type} ${index + 1}`}
+                  accessibilityRole="button">
+                  <Text style={styles.editButtonText}>✎</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
                   style={styles.deleteButton}
                   onPress={() => handleDelete(index)}
                   accessibilityLabel={`Delete ${item.type} ${index + 1}`}
@@ -441,6 +487,24 @@ const MultiMediaPicker = ({ onMediaChange, initialMedia = [] }) => {
             }
           }}
         />
+
+        {/* Media Editor Modal */}
+        {editingMedia && editingType === 'image' && (
+          <MediaEditor
+            media={editingMedia}
+            onSave={handleSaveEdit}
+            onCancel={handleCancelEdit}
+          />
+        )}
+
+        {/* Video Trimmer Modal */}
+        {editingMedia && editingType === 'video' && (
+          <VideoTrimmer
+            video={editingMedia}
+            onSave={handleSaveEdit}
+            onCancel={handleCancelEdit}
+          />
+        )}
       </View>
     </GestureHandlerRootView>
   );
@@ -519,6 +583,24 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 10,
     marginLeft: 2,
+  },
+  editButton: {
+    position: 'absolute',
+    top: -5,
+    left: -5,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#0095f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  editButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   deleteButton: {
     position: 'absolute',

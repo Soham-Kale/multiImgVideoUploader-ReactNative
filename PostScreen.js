@@ -15,6 +15,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import MultiMediaPicker from './MultiMediaPicker';
 import PostView from './PostView';
+import MentionInput from './src/components/MentionInput/MentionInput';
+import AudioPicker from './src/components/AudioPicker/AudioPicker';
+import useAudioSync from './src/hooks/useAudioSync';
 
 // API endpoint - not used for client-side only mode
 // Uncomment and update uploadMediaItem if you want to add real backend later
@@ -34,10 +37,17 @@ const PostScreen = ({ navigation, onPostCreated }) => {
   const [caption, setCaption] = useState('');
   const [location, setLocation] = useState('');
   const [tags, setTags] = useState('');
+  const [selectedAudio, setSelectedAudio] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [failedUploads, setFailedUploads] = useState([]);
   const [createdPost, setCreatedPost] = useState(null);
+
+  // Audio sync hook
+  const { isPlaying, playAudio, pauseAudio, stopAudio } = useAudioSync(
+    media,
+    false
+  );
 
   /**
    * Handle media changes from MultiMediaPicker
@@ -204,6 +214,7 @@ const PostScreen = ({ navigation, onPostCreated }) => {
             .split(',')
             .map((t) => t.trim())
             .filter((t) => t.length > 0),
+          audio: selectedAudio || null,
           createdAt: new Date().toISOString(),
         };
 
@@ -382,23 +393,26 @@ const PostScreen = ({ navigation, onPostCreated }) => {
             initialMedia={media}
           />
 
-          {/* Caption Input */}
+          {/* Caption Input with Mentions */}
           <View style={styles.inputSection}>
-            <TextInput
-              style={styles.captionInput}
-              placeholder="Write a caption..."
-              placeholderTextColor="#999"
+            <MentionInput
               value={caption}
               onChangeText={setCaption}
-              multiline
+              placeholder="Write a caption..."
               maxLength={2200}
-              accessibilityLabel="Caption input"
-              accessibilityHint="Enter a caption for your post"
+              style={styles.captionInput}
             />
             <Text style={styles.characterCount}>
               {caption.length} / 2200
             </Text>
           </View>
+
+          {/* Audio Picker */}
+          {/* <AudioPicker
+            selectedAudio={selectedAudio}
+            onAudioSelected={setSelectedAudio}
+            onRemove={() => setSelectedAudio(null)}
+          /> */}
 
           {/* Location Input */}
           <View style={styles.inputSection}>
